@@ -67,6 +67,7 @@ func copyFromFToOutput(category string, f *xlsx.File) {
 		rowOffset := 5
 		rowBeta1Offset := 7
 		rowBeta3Offset := 8
+		rowPercentageOffset := 10
 		rowStep := 12
 		for {
 			// Skip incomplete rows
@@ -78,6 +79,7 @@ func copyFromFToOutput(category string, f *xlsx.File) {
 			tableName := sheet.Rows[rowOffset].Cells[0]
 			tableBeta1Mean := sheet.Rows[rowOffset+rowBeta1Offset].Cells[2]
 			tableBeta3Mean := sheet.Rows[rowOffset+rowBeta3Offset].Cells[2]
+			tablePercentage := sheet.Rows[rowOffset+rowPercentageOffset].Cells[0]
 
 			// Check and map table name
 			tableNameString, err := tableName.String()
@@ -104,6 +106,16 @@ func copyFromFToOutput(category string, f *xlsx.File) {
 					panic(err)
 				}
 
+				tablePercentageString, err := tablePercentage.String()
+				if err != nil {
+					panic(err)
+				}
+
+				percentage, err := strconv.ParseFloat(strings.TrimSpace(strings.Split(tablePercentageString, "%")[0]), 64)
+				if err != nil {
+					panic(err)
+				}
+
 				// Define LB column and cell value
 				lbColName := fmt.Sprintf("%sLB_%s", category, tableNameString)
 				lbCellValue, err := strconv.ParseFloat(strings.TrimSpace(tableBeta1MeanString), 64)
@@ -119,12 +131,12 @@ func copyFromFToOutput(category string, f *xlsx.File) {
 				}
 
 				// Do something with these data...
-				log.Printf("[VP%d] %s: %f", personID, lbColName, lbCellValue)
-				log.Printf("[VP%d] %s: %f", personID, hbColName, hbCellValue)
+				// log.Printf("[VP%d @ %f] %s: %f", personID, percentage, lbColName, lbCellValue)
+				// log.Printf("[VP%d @ %f] %s: %f", personID, percentage, hbColName, hbCellValue)
 
 				// Insert into sheet
-				insertCellIntoOutput(personID, lbColName, lbCellValue)
-				insertCellIntoOutput(personID, hbColName, hbCellValue)
+				insertCellIntoOutput(personID, percentage, lbColName, lbCellValue)
+				insertCellIntoOutput(personID, percentage, hbColName, hbCellValue)
 			}
 
 			rowOffset += rowStep
@@ -136,7 +148,7 @@ func copyFromFToOutput(category string, f *xlsx.File) {
 /////////////////////////////////// Insert /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-func insertCellIntoOutput(personID int64, col string, cell float64) {
+func insertCellIntoOutput(personID int64, percentage float64, col string, cell float64) {
 	mainSheet := inputFile.Sheets[0]
 	columnNames := mainSheet.Rows[0].Cells
 
@@ -154,7 +166,28 @@ func insertCellIntoOutput(personID int64, col string, cell float64) {
 
 				i++
 
-				mainSheet.Cell(i, j).SetFloat(cell)
+				c := mainSheet.Cell(i, j)
+				c.SetFloat(cell)
+
+				if percentage >= 40 {
+					c.SetString(fmt.Sprintf("ZZZ: %f", cell))
+					c.GetStyle().Font.Bold = true
+					c.GetStyle().Font.Underline = true
+					c.GetStyle().Font.Size = 11
+					c.GetStyle().Font.Name = "Calibri"
+				} else if percentage >= 30 {
+					c.SetString(fmt.Sprintf("XXX: %f", cell))
+					c.GetStyle().Font.Bold = false
+					c.GetStyle().Font.Underline = true
+					c.GetStyle().Font.Size = 11
+					c.GetStyle().Font.Name = "Calibri"
+				} else {
+					c.GetStyle().Font.Bold = false
+					c.GetStyle().Font.Underline = false
+					c.GetStyle().Font.Size = 11
+					c.GetStyle().Font.Name = "Calibri"
+				}
+
 				return
 			}
 
