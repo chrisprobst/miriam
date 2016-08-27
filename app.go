@@ -172,7 +172,7 @@ func insertCellIntoOutput(personID int64, percentage float64, col string, cell f
 				if percentage >= 40 {
 					c.SetString(fmt.Sprintf("ZZZ: %f", cell))
 					c.GetStyle().Font.Bold = true
-					c.GetStyle().Font.Underline = true
+					c.GetStyle().Font.Underline = false
 					c.GetStyle().Font.Size = 11
 					c.GetStyle().Font.Name = "Calibri"
 				} else if percentage >= 30 {
