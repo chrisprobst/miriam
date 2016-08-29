@@ -3,7 +3,7 @@ import openpyxl.styles as xstyles
 
 fz_path = '/Users/chrisprobst/Desktop/Fz.xlsx'
 f4_path = '/Users/chrisprobst/Desktop/F4.xlsx'
-input_path = '/Users/chrisprobst/Desktop/EEG_Auswertung.xlsx'
+input_path = '/Users/chrisprobst/Desktop/EEG_Auswertung_neu.xlsx'
 output_path = '/Users/chrisprobst/Desktop/EEG_Auswertung_generated.xlsx'
 
 fzWB = x.load_workbook(fz_path)
@@ -16,6 +16,10 @@ redFill = xstyles.PatternFill(start_color='FFFF0000',
 
 orangeFill = xstyles.PatternFill(start_color='FFFFC000',
                                  end_color='FFFFC000',
+                                 fill_type='solid')
+
+whiteFill = xstyles.PatternFill(start_color='FFFFFFFF',
+                                 end_color='FFFFFFFF',
                                  fill_type='solid')
 
 row_beta1_offset = 7
@@ -42,9 +46,9 @@ def insert_cell_into_output(id, percentage, column, new_value):
                 c = row[j]
                 c.value = new_value
 
-                if percentage >= 40:
+                if percentage > 40:
                     c.fill = redFill
-                elif percentage >= 30:
+                elif percentage > 30:
                     c.fill = orangeFill
 
                 return
