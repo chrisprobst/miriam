@@ -3,12 +3,18 @@ import openpyxl.styles as xstyles
 
 fz_path = '/Users/chrisprobst/Desktop/Fz.xlsx'
 f4_path = '/Users/chrisprobst/Desktop/F4.xlsx'
-input_path = '/Users/chrisprobst/Desktop/EEG_Auswertung_neu.xlsx'
+input_path = '/Users/chrisprobst/Desktop/EEG_Auswertung.xlsx'
 output_path = '/Users/chrisprobst/Desktop/EEG_Auswertung_generated.xlsx'
+
+################################################################################
+################################################################################
 
 fzWB = x.load_workbook(fz_path)
 f4WB = x.load_workbook(f4_path)
 inputWB = x.load_workbook(input_path)
+
+################################################################################
+################################################################################
 
 redFill = xstyles.PatternFill(start_color='FFFF0000',
                               end_color='FFFF0000',
@@ -18,60 +24,75 @@ orangeFill = xstyles.PatternFill(start_color='FFFFC000',
                                  end_color='FFFFC000',
                                  fill_type='solid')
 
-whiteFill = xstyles.PatternFill(start_color='FFFFFFFF',
-                                 end_color='FFFFFFFF',
-                                 fill_type='solid')
-
 row_beta1_offset = 7
 row_beta3_offset = 8
 row_percentage_offset = 10
 row_step = 12
 
-def insert_cell_into_output(id, percentage, column, new_value):
-    main_sheet = inputWB.active
-    column_names = main_sheet.rows[0]
-    data_rows = main_sheet.rows[1:]
+################################################################################
+############################### Build the cache ################################
+################################################################################
 
-    for row in data_rows:
-        if len(row) == 0:
-            continue
+row_index_cache = {}
+column_index_cache = {}
+result_rows = inputWB.active.rows[:]
 
-        row_id = int(row[0].value)
+def build_caches():
+    column_names = result_rows[0][2:]
+    data_rows = result_rows[1:]
 
-        if row_id == id:
-            for j, column_name in enumerate(column_names):
-                if column_name.value != column:
-                    continue
+    for i, row in enumerate(data_rows):
+        row_index_cache[row[0].value] = i+1
 
-                c = row[j]
-                c.value = new_value
+    for i, column in enumerate(column_names):
+        column_index_cache[column.value] = i+2
 
-                if percentage > 40:
-                    c.fill = redFill
-                elif percentage > 30:
-                    c.fill = orangeFill
+# Build caches
+build_caches()
 
-                return
+################################################################################
+############################### Insert value into output #######################
+################################################################################
 
-            print("[VP%d] Could not find column: %s" % (id, column))
-            return
+def insert_value_into_output(row_index, column_index, percentage, new_value):
+    if row_index not in row_index_cache:
+        print("[VP%d] Could not find row: %d" % (row_index, row_index))
+        return
 
-    print("[VP%d] Could not id: %d" % (id, id))
-    return
+    if column_index not in column_index_cache:
+        print("[VP%d] Could not find column: %s" % (row_index, column_index))
+        return
+
+    i = row_index_cache[row_index]
+    j = column_index_cache[column_index]
+    c = result_rows[i][j]
+    c.value = new_value
+
+    if percentage > 40:
+        c.fill = redFill
+    elif percentage > 30:
+        c.fill = orangeFill
+
+################################################################################
+############################### Copy from F to output ##########################
+################################################################################
 
 def copy_from_f_to_output(category, wb):
+    print('Processing %s...' % category)
+
     for worksheet in wb.worksheets:
-        id = int(worksheet.title[2:4])
+        row_index = int(worksheet.title[2:4])
         row_offset = 5
+        rows = worksheet.rows[:]
 
         while True:
-            if len(worksheet.rows) < row_offset:
+            if len(rows) < row_offset:
                 break
 
-            table_name = worksheet.rows[row_offset][0]
-            table_beta1_mean = worksheet.rows[row_offset+row_beta1_offset][2]
-            table_beta3_mean = worksheet.rows[row_offset+row_beta3_offset][2]
-            table_percentage = worksheet.rows[row_offset+row_percentage_offset][0]
+            table_name = rows[row_offset][0]
+            table_beta1_mean = rows[row_offset+row_beta1_offset][2]
+            table_beta3_mean = rows[row_offset+row_beta3_offset][2]
+            table_percentage = rows[row_offset+row_percentage_offset][0]
 
             table_name_value = table_name.value
             table_name_value = table_name_value.split(':')[1].split('(')[0][:-1]
@@ -87,18 +108,25 @@ def copy_from_f_to_output(category, wb):
 
                 percentage = float(table_percentage_value.split('%')[0].strip())
 
-                lb_column_name = category + 'LB_' + table_name_value
+                lb_column_index = category + 'LB_' + table_name_value
                 lb_cell_value = float(table_beta1_mean_value.strip())
 
-                hb_column_name = category + 'HB_' + table_name_value
+                hb_column_index = category + 'HB_' + table_name_value
                 hb_cell_value = float(table_beta3_mean_value.strip())
 
-                insert_cell_into_output(id, percentage, lb_column_name, lb_cell_value)
-                insert_cell_into_output(id, percentage, hb_column_name, hb_cell_value)
+                insert_value_into_output(row_index, lb_column_index, percentage, lb_cell_value)
+                insert_value_into_output(row_index, hb_column_index, percentage, hb_cell_value)
 
             row_offset += row_step
 
+################################################################################
+############################### Main app #######################################
+################################################################################
+
 copy_from_f_to_output("F4", f4WB)
 copy_from_f_to_output("FZ", fzWB)
+
+################################################################################
+################################################################################
 
 inputWB.save(output_path)
